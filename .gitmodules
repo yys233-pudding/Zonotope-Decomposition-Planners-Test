@@ -1,0 +1,6 @@
+[submodule "hybzono-planner"]
+	path = hybzono-planner
+	url = https://github.com/psu-PAC-Lab/hybzono-planner.git
+[submodule "ompl"]
+	path = ompl
+	url = git@github.com:robotic-esp/ompl.git
