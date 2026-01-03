@@ -1,114 +1,52 @@
-# 分解算法测试框架实现方案
-
-## 目标
-创建一个测试框架，比较不同空间分解算法的性能，包括：
-- ConvexPartition_HM (Hertel-Mehlhorn)
-- ConvexPartition_OPT (Keil-Snoeyink)  
-- TriangularDecomposition (OMPL的三角化)
-
-## 测试指标
-1. **分解时间**：执行分解算法所需的时间
-2. **路径规划时间**：使用分解结果进行路径规划的时间
-3. **总时间**：分解时间 + 路径规划时间
-4. **分解质量**：
-   - 分解部分数（越少越好）
-   - 分解区域的平均面积
-   - 其他质量指标
-
-## 实现方案
-
-### 方案概述
-由于OMPL的geometric planners（RRT等）不直接使用分解结果，我们需要：
-1. 直接测试分解算法的性能（分解时间和质量）
-2. 对于路径规划，使用标准的OMPL planners，但记录路径规划时间
-3. 创建一个新的benchmark程序，类似于pdt的benchmark.cpp，但专注于分解算法测试
-
-### 需要创建的文件
-
-#### 1. 测试程序主文件
-- `pdt/src/experiments/src/decomposition_benchmark.cpp`
-  - 主测试程序
-  - 对每个分解算法执行测试
-  - 记录分解时间、路径规划时间
-  - 调用报告生成器
-
-#### 2. 报告类
-- `pdt/src/reports/include/pdt/reports/decomposition_benchmark_report.h`
-- `pdt/src/reports/src/decomposition_benchmark_report.cpp`
-  - 生成PDF报告
-  - 比较各分解算法的性能
-
-#### 3. 配置文件
-- `pdt/parameters/demo/decomposition_benchmark_demo.json`
-  - 测试参数配置
-
-#### 4. CMakeLists.txt修改
-- `pdt/src/experiments/CMakeLists.txt`：添加新的可执行文件
-- `pdt/src/reports/CMakeLists.txt`：添加报告源文件
-
-## 技术细节
-
-### 分解算法集成
-
-#### HM和OPT算法
-- 源文件：`hybzono-planner/extern/polypartition/src/polypartition.cpp`
-- 头文件：`hybzono-planner/extern/polypartition/src/polypartition.h`
-- 需要编译polypartition.cpp到测试程序中
-
-#### TriangularDecomposition
-- 使用OMPL的TriangularDecomposition类
-- 需要包含OMPL的头文件
-
-### 路径规划
-- 使用标准的OMPL geometric planners（如RRTConnect）
-- 虽然不直接使用分解结果，但可以记录规划时间作为参考
-- 未来可以扩展为使用分解结果的自定义planner
-
-## 测试流程
-
-1. 读取配置文件
-2. 对每个分解算法：
-   - 执行分解（记录分解时间）
-   - 记录分解质量指标（部分数等）
-   - 执行路径规划（记录规划时间）
-   - 计算总时间
-3. 生成报告，比较所有算法的性能
-
-## 实现步骤
-
-### 步骤1：修改CMakeLists.txt
-- `pdt/src/experiments/CMakeLists.txt`：添加decomposition_benchmark可执行文件
-  - 包含polypartition.cpp源文件
-  - 添加polypartition头文件路径
-  - 链接必要的库
-
-### 步骤2：创建测试程序
-- `pdt/src/experiments/src/decomposition_benchmark.cpp`
-  - 测试HM、OPT、TriangularDecomposition三种算法
-  - 记录分解时间、路径规划时间、总时间
-  - 记录分解质量指标
-
-### 步骤3：创建报告类
-- `pdt/src/reports/include/pdt/reports/decomposition_benchmark_report.h`
-- `pdt/src/reports/src/decomposition_benchmark_report.cpp`
-- 修改`pdt/src/reports/CMakeLists.txt`
-
-### 步骤4：创建配置文件
-- `pdt/parameters/demo/decomposition_benchmark_demo.json`
-
-## 实现注意事项
-
-1. **分解算法接口**：
-   - HM/OPT：使用polypartition库的ConvexPartition_HM和ConvexPartition_OPT
-   - TriangularDecomposition：使用OMPL的TriangularDecomposition类
-
-2. **路径规划**：
-   - 使用标准的OMPL geometric planners（如RRTConnect）
-   - 记录规划时间作为参考指标
-
-3. **测试数据**：
-   - 支持从polypartition/test目录读取测试数据
-   - 支持随机生成测试多边形
-
-## 下一步
-开始实现代码。
+PDT 非凸 - 凸分解测试用例模板（适配自动驾驶 MPC 运动规划）
+测试用例 ID	NC-CD-2024-001	测试名称	Hertel-Mehlhorn 算法非凸 - 凸分解及 MPC 联动测试
+测试目标	1. 验证 Hertel-Mehlhorn 算法等对典型非凸场景的分解正确性（凸性、完整性、无重叠）；2. 评估分解后凸约束对 MPC 求解效率、避障成功率的提升效果；3. 对比不同分解方式对端到端性能的影响		
+一、场景配置（非凸约束定义）
+场景类型	非凸约束描述	几何参数（示例）	PDT 场景搭建要求
+静态单非凸障碍物	L 形障碍物（非凸多边形），无其他遮挡	顶点坐标：(0,0)、(0,5)、(3,5)、(3,3)、(1,3)、(1,1)、(5,1)、(5,0)（单位：m）	1. 导入顶点坐标生成障碍物模型；2. 标注 “真实无障区”（障碍物外所有可通行区域）；3. 固定车辆起点 (8,2)、终点 (-2,2)
+静态多障碍物非凸通道	3 个矩形障碍物形成 “U 形” 非凸通道（中间可通行区域为非凸）	障碍物 1：(0,0)-(0,6)-(2,6)-(2,0)；障碍物 2：(0,0)-(6,0)-(6,2)-(0,2)；障碍物 3：(4,2)-(6,2)-(6,6)-(4,6)	1. 搭建 3 个障碍物模型，确保中间通道为非凸；2. 标注通道边界为 “真实无障区”；3. 车辆起点 (1,3)、终点 (5,3)
+3D 占据栅格非凸区	3D 场景中不规则障碍物（如阶梯状）构成的非凸无障区（Z 轴范围 0-2m）	占据栅格分辨率 0.5m×0.5m×0.5m；非凸无障区范围：X (0-10)、Y (0-10)、Z (0-2)（含阶梯状障碍物）	1. 导入 3D 占据栅格图；2. 标注 3D 无障区（基准）；3. 车辆起点 (1,1,1)、终点 (9,9,1)
+二、分解工具配置
+分解算法	参数设置	输出形式
+Hertel-Mehlhorn（实验组）	最小凸子区域面积阈值：0.5m²；分解精度：默认（CGAL 库默认配置）	分解后的凸子区域集合（含每个凸多边形顶点坐标 / 混合 zonotope 约束参数）、分解日志（耗时、子区域数量）
+网格划分（对照组 1）	网格尺寸：1m×1m（3D 场景 1m×1m×1m）；凸性判断：默认	网格化后的凸子区域集合、分解日志
+无分解（对照组 2）	-（直接使用非凸约束作为 MPC 输入）	非凸约束原始几何描述
+三、评估指标及合格阈值
+评估维度	核心指标	计算方式	合格阈值
+几何正确性	凸性通过率	分解后凸子区域中 “满足凸性定义” 的区域占比（逐区域验证：任意两点连线在区域内）	≥99%（允许极个别边界误差，误差≤0.01m）
+完整性误差	（分解后凸子区域并集面积 - 真实无障区面积）/ 真实无障区面积	绝对值≤1%（无遗漏、无额外区域）
+重叠率	所有凸子区域重叠面积总和 / 分解后凸子区域总面积	≤0.1%（基本无重叠）
+分解效率	平均分解耗时	多次测试（≥5 次）的分解时间平均值	单非凸障碍物场景≤10ms；多障碍物通道场景≤20ms；3D 场景≤50ms
+鲁棒性	极端场景分解成功率	测试 “极窄非凸通道”（宽度≤1.5 倍车宽）的分解成功次数 / 总测试次数	≥95%
+下游 MPC 性能	MPC 平均求解时间	多次测试（≥5 次）的 MPC 优化求解时间平均值	实验组比对照组 2（无分解）快≥50%；比对照组 1（网格划分）快≥30%
+避障成功率	车辆完成从起点到终点且无碰撞的测试次数 / 总测试次数	实验组≥98%；对照组 2（无分解）≥80%（允许非凸约束下部分求解失败）
+轨迹平滑度	控制输入（加速度 / 转向角）的标准差	实验组≤对照组 1/2（分解后凸约束降低 MPC 控制抖动）
+四、对照组设置
+组别	核心配置	测试目的
+实验组 1	Hertel-Mehlhorn 分解 + 混合 zonotope 约束 + hybzono文件夹中 MIQP/MPC solver	验证目标分解算法的实际效果
+实验组 2 Keil-Snoeyink (OPT)分解  + 混合 zonotope 约束 + hybzono文件夹中 MIQP/MPC solver	验证目标分解算法的实际效果
+对照组 1	网格划分分解 + 混合 zonotope 约束 + 相同 MIQP-MPC solver	对比不同凸分解方式的性能差异
+对照组 2	无分解（直接输入非凸约束） + 相同 MIQP-MPC solver	验证分解对 MPC 求解可行性、效率的提升作用
+对照组 3	Hertel-Mehlhorn 分解 + 混合 zonotope 约束 + Gurobi solver	对比不同 MPC 求解器对分解后约束的适配效果
+五、测试步骤
+搭建 PDT 测试场景：按 “场景配置” 要求在 PDT 中生成非凸约束模型，标注真实无障区，固定车辆起点 / 终点；
+集成分解工具与 MPC：在 PDT 中配置 “非凸输入→分解模块→凸约束输出→MPC 输入” 数据流，确保各模块接口兼容；
+单场景多组测试：对每个场景，依次运行实验组和 4 个对照组，每组测试≥5 次，记录分解日志和 MPC 运行数据；
+几何正确性校验：通过 PDT 内置几何工具，逐区域验证实验组分解结果的凸性、完整性、无重叠性；
+极端场景鲁棒性测试：修改场景参数（如非凸通道宽度缩小至 1.2 倍车宽），仅运行实验组，记录分解成功率；
+数据汇总分析：计算各指标平均值、标准差，对比实验组与对照组的性能差异。
+六、结果记录表格
+场景类型	组别	凸性通过率	完整性误差	重叠率	平均分解耗时（ms）	MPC 平均求解时间（ms）	避障成功率	轨迹平滑度（控制输入标准差）	测试结论（合格 / 不合格）
+静态单非凸障碍物	
+实验组 1
+实验组 2
+对照组 1								
+对照组 2	-	-	-	-				
+对照组 3		
+对照组 4 - - - -
+静态多障碍物非凸通道	实验组								
+（其余场景同理）	...								
+七、异常处理
+分解凸性不达标：检查 Hertel-Mehlhorn、OPT 算法参数（如最小面积阈值），重新调整后重试；
+MPC 求解超时：排查分解后的凸约束是否过多，或 MPC 预测时域设置不合理，优化约束筛选或 MPC 参数；
+避障失败：回溯分解结果是否遗漏无障区，或 MPC 约束软化参数不当，修正分解配置或 MPC 约束权重。
